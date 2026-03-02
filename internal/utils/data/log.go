@@ -1,0 +1,38 @@
+package data
+
+// Service field logging constants
+const (
+	MainService       = "main"
+	EnvService        = "env"
+	HTTPServerService = "http_server"
+	GRPCClientService = "grpc_client"
+	DashboardService  = "dashboard"
+)
+
+// Message field logging constants
+const (
+	// env / startup
+	LogEnvVarMissing = "env_var_missing"
+
+	// http server
+	LogHTTPServerStarted        = "http_server_started"
+	LogHTTPServerStartFailed    = "http_server_start_failed"
+	LogHTTPServerShutdownFailed = "http_server_shutdown_failed"
+
+	// grpc client
+	LogGRPCClientSetupStarted = "grpc_client_setup_started"
+	LogGRPCClientSetupSuccess = "grpc_client_setup_success"
+	LogGRPCClientSetupFailed  = "grpc_client_setup_failed"
+	LogGRPCClientClosed       = "grpc_client_closed"
+
+	// shutdown
+	LogShutdownSignalReceived = "shutdown_signal_received"
+	LogShutdownCompleted      = "shutdown_completed"
+
+	// dashboard handler
+	LogGetFinancialSummaryFailed    = "get_financial_summary_failed"
+	LogGetUserBalanceFailed         = "get_user_balance_failed"
+	LogGetUserTransactionsFailed    = "get_user_transactions_failed"
+	LogGetNetWorthCompositionFailed = "get_net_worth_composition_failed"
+	LogGetUserWalletsFailed         = "get_user_wallets_failed"
+)
