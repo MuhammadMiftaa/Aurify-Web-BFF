@@ -50,3 +50,18 @@ type GetUserFinancialSummaryRequest struct {
 	WalletID string     `json:"walletID,omitempty"`
 	Range    *DateRange `json:"range,omitempty"`
 }
+
+// ── Wallet HTTP Request DTOs (from frontend) ──
+
+type CreateWalletRequest struct {
+	WalletTypeID string  `json:"wallet_type_id" validate:"required"`
+	Name         string  `json:"name" validate:"required"`
+	Balance      float64 `json:"balance"`
+	Number       string  `json:"number" validate:"required"`
+}
+
+type UpdateWalletRequest struct {
+	Name         string `json:"name,omitempty"`
+	WalletTypeID string `json:"wallet_type_id,omitempty"`
+	Number       string `json:"number,omitempty"`
+}

@@ -33,7 +33,8 @@ func CORSMiddleware() fiber.Handler {
 func isAllowedOrigin(origin string) bool {
 	if env.Cfg.Server.Mode == data.DEVELOPMENT_MODE {
 		if strings.HasPrefix(origin, "http://localhost:") ||
-			strings.HasPrefix(origin, "http://127.0.0.1:") {
+			strings.HasPrefix(origin, "http://127.0.0.1:") ||
+			strings.Contains(origin, "asse.devtunnels.ms") {
 			return true
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"refina-web-bff/internal/utils/data"
 
 	dpb "github.com/MuhammadMiftaa/Refina-Protobuf/dashboard"
+	wpb "github.com/MuhammadMiftaa/Refina-Protobuf/wallet"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -18,6 +19,7 @@ import (
 
 type GRPCClientManager struct {
 	dashboardClient dpb.DashboardServiceClient
+	walletClient    wpb.WalletServiceClient
 
 	connections []*grpc.ClientConn
 	mu          sync.RWMutex
@@ -46,10 +48,15 @@ func (m *GRPCClientManager) SetupGRPCClient() error {
 	logger.Info(data.LogGRPCClientSetupStarted, map[string]any{
 		"service":           data.GRPCClientService,
 		"dashboard_address": env.Cfg.GRPCConfig.DashboardAddress,
+		"wallet_address":    env.Cfg.GRPCConfig.WalletAddress,
 	})
 
 	if err := m.setupDashboardClient(env.Cfg.GRPCConfig.DashboardAddress); err != nil {
 		return fmt.Errorf("failed to setup dashboard client: %w", err)
+	}
+
+	if err := m.setupWalletClient(env.Cfg.GRPCConfig.WalletAddress); err != nil {
+		return fmt.Errorf("failed to setup wallet client: %w", err)
 	}
 
 	logger.Info(data.LogGRPCClientSetupSuccess, map[string]any{
@@ -66,6 +73,17 @@ func (m *GRPCClientManager) setupDashboardClient(address string) error {
 	}
 
 	m.dashboardClient = dpb.NewDashboardServiceClient(conn)
+	m.connections = append(m.connections, conn)
+	return nil
+}
+
+func (m *GRPCClientManager) setupWalletClient(address string) error {
+	conn, err := m.createConnection(address)
+	if err != nil {
+		return err
+	}
+
+	m.walletClient = wpb.NewWalletServiceClient(conn)
 	m.connections = append(m.connections, conn)
 	return nil
 }
@@ -97,6 +115,13 @@ func (m *GRPCClientManager) GetDashboardClient() dpb.DashboardServiceClient {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.dashboardClient
+}
+
+// GetWalletClient returns the wallet gRPC client
+func (m *GRPCClientManager) GetWalletClient() wpb.WalletServiceClient {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.walletClient
 }
 
 // Close closes all gRPC connections

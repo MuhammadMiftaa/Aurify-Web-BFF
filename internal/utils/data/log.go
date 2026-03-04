@@ -7,6 +7,7 @@ const (
 	HTTPServerService = "http_server"
 	GRPCClientService = "grpc_client"
 	DashboardService  = "dashboard"
+	WalletService     = "wallet"
 )
 
 // Message field logging constants
@@ -35,4 +36,13 @@ const (
 	LogGetUserTransactionsFailed    = "get_user_transactions_failed"
 	LogGetNetWorthCompositionFailed = "get_net_worth_composition_failed"
 	LogGetUserWalletsFailed         = "get_user_wallets_failed"
+
+	// wallet handler
+	LogGetWalletsFailed       = "get_wallets_failed"
+	LogGetWalletByIDFailed    = "get_wallet_by_id_failed"
+	LogCreateWalletFailed     = "create_wallet_failed"
+	LogUpdateWalletFailed     = "update_wallet_failed"
+	LogDeleteWalletFailed     = "delete_wallet_failed"
+	LogGetWalletTypesFailed   = "get_wallet_types_failed"
+	LogGetWalletSummaryFailed = "get_wallet_summary_failed"
 )

@@ -45,8 +45,11 @@ func main() {
 	// Create dashboard client wrapper
 	dashboardClient := grpcClient.NewDashboardClient(grpcMgr.GetDashboardClient())
 
+	// Create wallet client wrapper
+	walletClient := grpcClient.NewWalletClient(grpcMgr.GetWalletClient())
+
 	// Set up the HTTP server (Fiber)
-	app := router.SetupHTTPServer(dashboardClient)
+	app := router.SetupHTTPServer(dashboardClient, walletClient)
 	logger.Info(data.LogHTTPServerStarted, map[string]any{
 		"service":  data.HTTPServerService,
 		"port":     env.Cfg.Server.HTTPPort,

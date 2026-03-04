@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func SetupHTTPServer(dc grpcClient.DashboardClient) *fiber.App {
+func SetupHTTPServer(dc grpcClient.DashboardClient, wc grpcClient.WalletClient) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      "Refina BFF",
 		ServerHeader: "Refina",
@@ -44,6 +44,7 @@ func SetupHTTPServer(dc grpcClient.DashboardClient) *fiber.App {
 
 	// Register route groups
 	routes.DashboardRoutes(app, dc)
+	routes.WalletRoutes(app, wc)
 
 	return app
 }
