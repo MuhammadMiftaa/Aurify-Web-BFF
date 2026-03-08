@@ -4,12 +4,13 @@ import (
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/http/handler"
 	"refina-web-bff/interface/http/middleware"
+	"refina-web-bff/internal/cache"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func WalletRoutes(app *fiber.App, tc grpcClient.TransactionClient, wc grpcClient.WalletClient) {
-	h := handler.NewWalletHandler(tc, wc)
+func WalletRoutes(app *fiber.App, tc grpcClient.TransactionClient, wc grpcClient.WalletClient, c cache.Cache) {
+	h := handler.NewWalletHandler(tc, wc, c)
 
 	// Wallet CRUD routes
 	wallets := app.Group("/wallets")

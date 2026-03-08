@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/grpc/interceptor"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
 	"refina-web-bff/internal/utils/data"
 
@@ -17,12 +20,14 @@ import (
 type walletHandler struct {
 	transaction grpcClient.TransactionClient
 	wallet      grpcClient.WalletClient
+	cache       cache.Cache
 }
 
-func NewWalletHandler(tc grpcClient.TransactionClient, wc grpcClient.WalletClient) *walletHandler {
+func NewWalletHandler(tc grpcClient.TransactionClient, wc grpcClient.WalletClient, c cache.Cache) *walletHandler {
 	return &walletHandler{
 		transaction: tc,
 		wallet:      wc,
+		cache:       c,
 	}
 }
 
@@ -30,6 +35,14 @@ func NewWalletHandler(tc grpcClient.TransactionClient, wc grpcClient.WalletClien
 func (h *walletHandler) GetUserWallets(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.WalletList(userData.ID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -77,18 +90,34 @@ func (h *walletHandler) GetUserWallets(c *fiber.Ctx) error {
 		wallet.TransactionCount = walletTrxCount[wallet.GetId()]
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "User wallets retrieved successfully",
 		Data:       result.GetWallets(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLShort); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetWalletSummary — GET /wallets/summary
 func (h *walletHandler) GetWalletSummary(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.WalletSummary(userData.ID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -107,12 +136,20 @@ func (h *walletHandler) GetWalletSummary(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Wallet summary retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLShort); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetWalletByID — GET /wallets/:id
@@ -127,6 +164,14 @@ func (h *walletHandler) GetWalletByID(c *fiber.Ctx) error {
 			StatusCode: 400,
 			Message:    "Wallet ID is required",
 		})
+	}
+
+	cacheKey := cache.WalletByID(walletID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
@@ -146,12 +191,20 @@ func (h *walletHandler) GetWalletByID(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Wallet retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLShort); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // CreateWallet — POST /wallets
@@ -200,6 +253,9 @@ func (h *walletHandler) CreateWallet(c *fiber.Ctx) error {
 			Message:    fmt.Sprintf("Failed to create wallet: %s", err.Error()),
 		})
 	}
+
+	// Invalidate wallet & dashboard caches
+	go h.invalidateWalletCaches(c.UserContext(), userData.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(dto.APIResponse{
 		Status:     true,
@@ -256,6 +312,10 @@ func (h *walletHandler) UpdateWallet(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate wallet & dashboard caches
+	go h.invalidateWalletCaches(c.UserContext(), userData.ID)
+	go h.cache.Delete(c.UserContext(), cache.WalletByID(walletID))
+
 	return c.JSON(dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
@@ -295,6 +355,10 @@ func (h *walletHandler) DeleteWallet(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate wallet & dashboard caches
+	go h.invalidateWalletCaches(c.UserContext(), userData.ID)
+	go h.cache.Delete(c.UserContext(), cache.WalletByID(walletID))
+
 	return c.JSON(dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
@@ -306,6 +370,14 @@ func (h *walletHandler) DeleteWallet(c *fiber.Ctx) error {
 func (h *walletHandler) GetWalletTypes(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.WalletTypes()
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -323,10 +395,35 @@ func (h *walletHandler) GetWalletTypes(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Wallet types retrieved successfully",
 		Data:       result.GetWalletTypes(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLStatic); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
+}
+
+// invalidateWalletCaches clears wallet-related and dashboard-related caches for a user.
+func (h *walletHandler) invalidateWalletCaches(ctx context.Context, userID string) {
+	patterns := []string{
+		cache.WalletAllPattern(userID),
+		cache.DashboardWallets(userID),
+		cache.DashboardNetWorth(userID),
+	}
+	// Delete exact keys first
+	_ = h.cache.Delete(ctx, cache.DashboardWallets(userID), cache.DashboardNetWorth(userID))
+	// Then pattern-based
+	for _, p := range patterns[:1] { // only wallet:* needs pattern scan
+		if err := h.cache.DeleteByPattern(ctx, p); err != nil {
+			logger.Warn(data.LogCacheInvalidateFail, map[string]any{"service": data.CacheService, "pattern": p, "error": err.Error()})
+		}
+	}
 }

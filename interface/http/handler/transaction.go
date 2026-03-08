@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/grpc/interceptor"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
 	"refina-web-bff/internal/utils/data"
 
@@ -17,12 +20,14 @@ import (
 type transactionHandler struct {
 	transaction grpcClient.TransactionClient
 	wallet      grpcClient.WalletClient
+	cache       cache.Cache
 }
 
-func NewTransactionHandler(tc grpcClient.TransactionClient, wc grpcClient.WalletClient) *transactionHandler {
+func NewTransactionHandler(tc grpcClient.TransactionClient, wc grpcClient.WalletClient, c cache.Cache) *transactionHandler {
 	return &transactionHandler{
 		transaction: tc,
 		wallet:      wc,
+		cache:       c,
 	}
 }
 
@@ -50,6 +55,16 @@ func (h *transactionHandler) GetUserTransactions(c *fiber.Ctx) error {
 		Cursor:       c.Query("cursor"),
 		CursorAmount: cursorAmount,
 		CursorDate:   c.Query("cursor_date"),
+	}
+
+	// Build cache key from query params
+	paramsHash := cache.HashParams(fmt.Sprintf("%+v", req))
+	cacheKey := cache.TransactionList(userData.ID, paramsHash)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
@@ -99,12 +114,20 @@ func (h *transactionHandler) GetUserTransactions(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Transactions retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLShort); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetTransactionByID — GET /transactions/:id
@@ -119,6 +142,14 @@ func (h *transactionHandler) GetTransactionByID(c *fiber.Ctx) error {
 			StatusCode: 400,
 			Message:    "Transaction ID is required",
 		})
+	}
+
+	cacheKey := cache.TransactionByID(transactionID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
@@ -138,12 +169,20 @@ func (h *transactionHandler) GetTransactionByID(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Transaction retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLMedium); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // CreateTransaction — POST /transactions
@@ -195,6 +234,9 @@ func (h *transactionHandler) CreateTransaction(c *fiber.Ctx) error {
 			Message:    fmt.Sprintf("Failed to create transaction: %s", err.Error()),
 		})
 	}
+
+	// Invalidate transaction, wallet, and dashboard caches
+	go h.invalidateTransactionCaches(c.UserContext(), userData.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(dto.APIResponse{
 		Status:     true,
@@ -254,6 +296,10 @@ func (h *transactionHandler) CreateFundTransfer(c *fiber.Ctx) error {
 			Message:    fmt.Sprintf("Failed to create fund transfer: %s", err.Error()),
 		})
 	}
+
+	// Invalidate transaction, wallet, and dashboard caches (both wallets involved)
+	go h.invalidateTransactionCaches(c.UserContext(), userData.ID)
+	go h.cache.Delete(c.UserContext(), cache.WalletByID(req.FromWalletID), cache.WalletByID(req.ToWalletID))
 
 	return c.Status(fiber.StatusCreated).JSON(dto.APIResponse{
 		Status:     true,
@@ -322,6 +368,10 @@ func (h *transactionHandler) UpdateTransaction(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate transaction, wallet, and dashboard caches
+	go h.invalidateTransactionCaches(c.UserContext(), userData.ID)
+	go h.cache.Delete(c.UserContext(), cache.TransactionByID(transactionID))
+
 	return c.JSON(dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
@@ -361,6 +411,10 @@ func (h *transactionHandler) DeleteTransaction(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate transaction, wallet, and dashboard caches
+	go h.invalidateTransactionCaches(c.UserContext(), userData.ID)
+	go h.cache.Delete(c.UserContext(), cache.TransactionByID(transactionID))
+
 	return c.JSON(dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
@@ -376,6 +430,14 @@ func (h *transactionHandler) GetCategories(c *fiber.Ctx) error {
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
 
 	categoryType := c.Query("type") // optional filter: income, expense, fund_transfer
+
+	cacheKey := cache.TransactionCategories(categoryType)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -394,12 +456,20 @@ func (h *transactionHandler) GetCategories(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Categories retrieved successfully",
 		Data:       result.GetCategories(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLStatic); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // ── Attachment Handlers ──
@@ -533,4 +603,19 @@ func (h *transactionHandler) DeleteAttachment(c *fiber.Ctx) error {
 		StatusCode: 200,
 		Message:    "Attachment deleted successfully",
 	})
+}
+
+// invalidateTransactionCaches clears transaction, wallet, and dashboard caches for a user.
+func (h *transactionHandler) invalidateTransactionCaches(ctx context.Context, userID string) {
+	// Pattern-based invalidation
+	patterns := []string{
+		cache.TransactionListPattern(userID),
+		cache.WalletAllPattern(userID),
+		cache.DashboardAllPattern(userID),
+	}
+	for _, p := range patterns {
+		if err := h.cache.DeleteByPattern(ctx, p); err != nil {
+			logger.Warn(data.LogCacheInvalidateFail, map[string]any{"service": data.CacheService, "pattern": p, "error": err.Error()})
+		}
+	}
 }

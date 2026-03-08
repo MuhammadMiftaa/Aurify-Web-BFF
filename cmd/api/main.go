@@ -7,10 +7,12 @@ import (
 	"syscall"
 	"time"
 
+	redisSetup "refina-web-bff/config/cache"
 	"refina-web-bff/config/env"
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/http/router"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/utils"
 	"refina-web-bff/internal/utils/data"
 )
@@ -32,6 +34,20 @@ func init() {
 
 func main() {
 	startTime := time.Now()
+
+	// Set up Redis cache
+	redisClient, err := redisSetup.NewRedisClient(redisSetup.RedisConfig{
+		Address:  env.Cfg.RedisConfig.Address,
+		Password: env.Cfg.RedisConfig.Password,
+		DB:       redisSetup.ParseRedisDB(env.Cfg.RedisConfig.DB),
+	})
+	if err != nil {
+		logger.Fatal(data.LogRedisSetupFailed, map[string]any{
+			"service": data.CacheService,
+			"error":   err.Error(),
+		})
+	}
+	appCache := cache.NewRedisCache(redisClient)
 
 	// Set up gRPC clients
 	grpcMgr := grpcClient.GetManager()
@@ -55,7 +71,7 @@ func main() {
 	investmentClient := grpcClient.NewInvestmentClient(grpcMgr.GetInvestmentClient())
 
 	// Set up the HTTP server (Fiber)
-	app := router.SetupHTTPServer(dashboardClient, walletClient, transactionClient, investmentClient)
+	app := router.SetupHTTPServer(dashboardClient, walletClient, transactionClient, investmentClient, appCache)
 	logger.Info(data.LogHTTPServerStarted, map[string]any{
 		"service":  data.HTTPServerService,
 		"port":     env.Cfg.Server.HTTPPort,
@@ -83,6 +99,14 @@ func main() {
 
 	// Close gRPC connections
 	grpcMgr.Close()
+
+	// Close Redis connection
+	if err := appCache.Close(); err != nil {
+		logger.Error("redis_close_failed", map[string]any{
+			"service": data.CacheService,
+			"error":   err.Error(),
+		})
+	}
 
 	if err := app.ShutdownWithTimeout(30 * time.Second); err != nil {
 		logger.Error(data.LogHTTPServerShutdownFailed, map[string]any{

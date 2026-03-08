@@ -6,6 +6,7 @@ const (
 	EnvService         = "env"
 	HTTPServerService  = "http_server"
 	GRPCClientService  = "grpc_client"
+	CacheService       = "cache"
 	DashboardService   = "dashboard"
 	WalletService      = "wallet"
 	TransactionService = "transaction"
@@ -67,4 +68,13 @@ const (
 	LogSellInvestmentFailed       = "sell_investment_failed"
 	LogGetInvestmentSummaryFailed = "get_investment_summary_failed"
 	LogGetAssetCodesFailed        = "get_asset_codes_failed"
+
+	// cache
+	LogCacheHit            = "cache_hit"
+	LogCacheMiss           = "cache_miss"
+	LogCacheSetFailed      = "cache_set_failed"
+	LogCacheGetFailed      = "cache_get_failed"
+	LogCacheInvalidated    = "cache_invalidated"
+	LogCacheInvalidateFail = "cache_invalidate_failed"
+	LogRedisSetupFailed    = "redis_setup_failed"
 )

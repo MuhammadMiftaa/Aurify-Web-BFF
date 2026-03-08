@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
+
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/grpc/interceptor"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
 	"refina-web-bff/internal/utils/data"
 
@@ -14,11 +18,13 @@ import (
 
 type dashboardHandler struct {
 	dashboard grpcClient.DashboardClient
+	cache     cache.Cache
 }
 
-func NewDashboardHandler(dc grpcClient.DashboardClient) *dashboardHandler {
+func NewDashboardHandler(dc grpcClient.DashboardClient, c cache.Cache) *dashboardHandler {
 	return &dashboardHandler{
 		dashboard: dc,
+		cache:     c,
 	}
 }
 
@@ -35,6 +41,21 @@ func (h *dashboardHandler) GetUserFinancialSummary(c *fiber.Ctx) error {
 			StatusCode: 400,
 			Message:    "Invalid request body",
 		})
+	}
+
+	// Build cache key
+	rangeStart, rangeEnd := "", ""
+	if req.Range != nil {
+		rangeStart = req.Range.Start
+		rangeEnd = req.Range.End
+	}
+	cacheKey := cache.DashboardFinancialSummary(userData.ID, req.WalletID, rangeStart, rangeEnd)
+
+	// Try cache
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	grpcReq := &dpb.GetUserFinancialSummaryRequest{
@@ -65,12 +86,21 @@ func (h *dashboardHandler) GetUserFinancialSummary(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Financial summary retrieved successfully",
 		Data:       result.GetSummaries(),
-	})
+	}
+
+	// Store in cache
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLLong); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetUserBalance — POST /dashboard/balance
@@ -90,6 +120,21 @@ func (h *dashboardHandler) GetUserBalance(c *fiber.Ctx) error {
 
 	if req.Aggregation == "" {
 		req.Aggregation = "monthly"
+	}
+
+	// Build cache key
+	rangeStart, rangeEnd := "", ""
+	if req.Range != nil {
+		rangeStart = req.Range.Start
+		rangeEnd = req.Range.End
+	}
+	cacheKey := cache.DashboardBalance(userData.ID, req.WalletID, req.Aggregation, rangeStart, rangeEnd)
+
+	// Try cache
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	grpcReq := &dpb.GetUserBalanceRequest{
@@ -121,12 +166,20 @@ func (h *dashboardHandler) GetUserBalance(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "User balance retrieved successfully",
 		Data:       result.GetSnapshots(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLLong); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetUserTransactions — POST /dashboard/transactions
@@ -142,6 +195,16 @@ func (h *dashboardHandler) GetUserTransactions(c *fiber.Ctx) error {
 			StatusCode: 400,
 			Message:    "Invalid request body",
 		})
+	}
+
+	// Build cache key
+	dateOptHash := cache.HashParams(fmt.Sprintf("%+v", req.DateOption))
+	cacheKey := cache.DashboardTransactions(userData.ID, req.WalletID, dateOptHash)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	grpcReq := &dpb.GetUserTransactionsRequest{
@@ -195,12 +258,20 @@ func (h *dashboardHandler) GetUserTransactions(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "User transactions retrieved successfully",
 		Data:       result.GetCategories(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLMedium); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetUserNetWorthComposition — POST /dashboard/net-worth
@@ -208,6 +279,14 @@ func (h *dashboardHandler) GetUserNetWorthComposition(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.DashboardNetWorth(userData.ID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -233,12 +312,20 @@ func (h *dashboardHandler) GetUserNetWorthComposition(c *fiber.Ctx) error {
 		result = nil
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Net worth composition retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLLong); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetUserWallets — GET /dashboard/wallets
@@ -246,6 +333,14 @@ func (h *dashboardHandler) GetUserWallets(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.DashboardWallets(userData.ID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -264,10 +359,18 @@ func (h *dashboardHandler) GetUserWallets(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "User wallets retrieved successfully",
 		Data:       result.GetWallets(),
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLMedium); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }

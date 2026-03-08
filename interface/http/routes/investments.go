@@ -4,12 +4,13 @@ import (
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/http/handler"
 	"refina-web-bff/interface/http/middleware"
+	"refina-web-bff/internal/cache"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func InvestmentRoutes(app *fiber.App, ic grpcClient.InvestmentClient) {
-	h := handler.NewInvestmentHandler(ic)
+func InvestmentRoutes(app *fiber.App, ic grpcClient.InvestmentClient, c cache.Cache) {
+	h := handler.NewInvestmentHandler(ic, c)
 
 	investments := app.Group("/investments")
 	investments.Use(middleware.AuthMiddleware())

@@ -1,11 +1,15 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/grpc/interceptor"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
 	"refina-web-bff/internal/utils/data"
 
@@ -15,10 +19,11 @@ import (
 
 type investmentHandler struct {
 	investment grpcClient.InvestmentClient
+	cache      cache.Cache
 }
 
-func NewInvestmentHandler(ic grpcClient.InvestmentClient) *investmentHandler {
-	return &investmentHandler{investment: ic}
+func NewInvestmentHandler(ic grpcClient.InvestmentClient, c cache.Cache) *investmentHandler {
+	return &investmentHandler{investment: ic, cache: c}
 }
 
 // GetUserInvestments — GET /investments
@@ -39,6 +44,15 @@ func (h *investmentHandler) GetUserInvestments(c *fiber.Ctx) error {
 		Code:      c.Query("code"),
 	}
 
+	paramsHash := cache.HashParams(fmt.Sprintf("%+v", req))
+	cacheKey := cache.InvestmentList(userData.ID, paramsHash)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
+
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
 	result, err := h.investment.GetUserInvestmentList(ctx, req)
@@ -56,12 +70,20 @@ func (h *investmentHandler) GetUserInvestments(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Investments retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, 3*cache.TTLShort/2); err != nil { // ~3 min
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetInvestmentDetail — GET /investments/:id
@@ -76,6 +98,14 @@ func (h *investmentHandler) GetInvestmentDetail(c *fiber.Ctx) error {
 			StatusCode: 400,
 			Message:    "Investment ID is required",
 		})
+	}
+
+	cacheKey := cache.InvestmentDetail(investmentID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
 	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
@@ -98,12 +128,20 @@ func (h *investmentHandler) GetInvestmentDetail(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Investment detail retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLMedium); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // CreateInvestment — POST /investments
@@ -145,6 +183,9 @@ func (h *investmentHandler) CreateInvestment(c *fiber.Ctx) error {
 			Message:    "Failed to create investment",
 		})
 	}
+
+	// Invalidate investment and dashboard caches
+	go h.invalidateInvestmentCaches(c.UserContext(), userData.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(dto.APIResponse{
 		Status:     true,
@@ -193,6 +234,9 @@ func (h *investmentHandler) SellInvestment(c *fiber.Ctx) error {
 		})
 	}
 
+	// Invalidate investment and dashboard caches
+	go h.invalidateInvestmentCaches(c.UserContext(), userData.ID)
+
 	return c.JSON(dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
@@ -205,6 +249,14 @@ func (h *investmentHandler) SellInvestment(c *fiber.Ctx) error {
 func (h *investmentHandler) GetInvestmentSummary(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.InvestmentSummary(userData.ID)
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -223,18 +275,34 @@ func (h *investmentHandler) GetInvestmentSummary(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Investment summary retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, 3*cache.TTLShort/2); err != nil { // ~3 min
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
 }
 
 // GetAssetCodes — GET /investments/asset-codes
 func (h *investmentHandler) GetAssetCodes(c *fiber.Ctx) error {
 	userData := c.Locals("user_data").(dto.UserData)
 	requestID, _ := c.Locals(data.REQUEST_ID_LOCAL_KEY).(string)
+
+	cacheKey := cache.InvestmentAssetCodes()
+
+	if cached, err := h.cache.Get(c.UserContext(), cacheKey); err == nil && cached != nil {
+		logger.Debug(data.LogCacheHit, map[string]any{"service": data.CacheService, "key": cacheKey})
+		c.Set("Content-Type", "application/json")
+		return c.Send(cached)
+	}
 
 	ctx := interceptor.ContextWithUserData(c.UserContext(), userData)
 
@@ -253,10 +321,30 @@ func (h *investmentHandler) GetAssetCodes(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.APIResponse{
+	resp := dto.APIResponse{
 		Status:     true,
 		StatusCode: 200,
 		Message:    "Asset codes retrieved successfully",
 		Data:       result,
-	})
+	}
+
+	if b, err := json.Marshal(resp); err == nil {
+		if err := h.cache.Set(c.UserContext(), cacheKey, b, cache.TTLAsset); err != nil {
+			logger.Warn(data.LogCacheSetFailed, map[string]any{"service": data.CacheService, "key": cacheKey, "error": err.Error()})
+		}
+	}
+
+	return c.JSON(resp)
+}
+
+// invalidateInvestmentCaches clears investment and dashboard net-worth caches for a user.
+func (h *investmentHandler) invalidateInvestmentCaches(ctx context.Context, userID string) {
+	// Pattern-based: inv:{user_id}:*
+	if err := h.cache.DeleteByPattern(ctx, cache.InvestmentAllPattern(userID)); err != nil {
+		logger.Warn(data.LogCacheInvalidateFail, map[string]any{"service": data.CacheService, "pattern": cache.InvestmentAllPattern(userID), "error": err.Error()})
+	}
+	// Exact key: dashboard net-worth
+	if err := h.cache.Delete(ctx, cache.DashboardNetWorth(userID)); err != nil {
+		logger.Warn(data.LogCacheInvalidateFail, map[string]any{"service": data.CacheService, "key": cache.DashboardNetWorth(userID), "error": err.Error()})
+	}
 }

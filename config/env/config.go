@@ -23,10 +23,17 @@ type (
 		InvestmentAddress  string
 	}
 
+	RedisConfig struct {
+		Address  string
+		Password string
+		DB       string
+	}
+
 	Config struct {
-		Server     Server
-		Auth       Auth
-		GRPCConfig GRPCConfig
+		Server      Server
+		Auth        Auth
+		GRPCConfig  GRPCConfig
+		RedisConfig RedisConfig
 	}
 )
 
@@ -71,6 +78,13 @@ func Load() ([]string, error) {
 	if Cfg.GRPCConfig.InvestmentAddress, ok = os.LookupEnv("INVESTMENT_GRPC_ADDRESS"); !ok {
 		missing = append(missing, "INVESTMENT_GRPC_ADDRESS")
 	}
+
+	// Redis
+	if Cfg.RedisConfig.Address, ok = os.LookupEnv("REDIS_ADDRESS"); !ok {
+		missing = append(missing, "REDIS_ADDRESS")
+	}
+	Cfg.RedisConfig.Password, _ = os.LookupEnv("REDIS_PASSWORD") // optional
+	Cfg.RedisConfig.DB, _ = os.LookupEnv("REDIS_DB")             // optional, defaults to "0"
 
 	return missing, nil
 }

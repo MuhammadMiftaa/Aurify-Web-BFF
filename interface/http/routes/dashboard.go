@@ -4,12 +4,13 @@ import (
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/http/handler"
 	"refina-web-bff/interface/http/middleware"
+	"refina-web-bff/internal/cache"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func DashboardRoutes(app *fiber.App, dc grpcClient.DashboardClient) {
-	h := handler.NewDashboardHandler(dc)
+func DashboardRoutes(app *fiber.App, dc grpcClient.DashboardClient, c cache.Cache) {
+	h := handler.NewDashboardHandler(dc, c)
 
 	dashboard := app.Group("/dashboard")
 	dashboard.Use(middleware.AuthMiddleware())

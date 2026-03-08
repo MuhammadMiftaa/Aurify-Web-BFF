@@ -4,13 +4,14 @@ import (
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/http/middleware"
 	"refina-web-bff/interface/http/routes"
+	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-func SetupHTTPServer(dc grpcClient.DashboardClient, wc grpcClient.WalletClient, tc grpcClient.TransactionClient, ic grpcClient.InvestmentClient) *fiber.App {
+func SetupHTTPServer(dc grpcClient.DashboardClient, wc grpcClient.WalletClient, tc grpcClient.TransactionClient, ic grpcClient.InvestmentClient, c cache.Cache) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:      "Refina BFF",
 		ServerHeader: "Refina",
@@ -43,10 +44,10 @@ func SetupHTTPServer(dc grpcClient.DashboardClient, wc grpcClient.WalletClient, 
 	})
 
 	// Register route groups
-	routes.DashboardRoutes(app, dc)
-	routes.WalletRoutes(app, tc, wc)
-	routes.TransactionRoutes(app, tc, wc)
-	routes.InvestmentRoutes(app, ic)
+	routes.DashboardRoutes(app, dc, c)
+	routes.WalletRoutes(app, tc, wc, c)
+	routes.TransactionRoutes(app, tc, wc, c)
+	routes.InvestmentRoutes(app, ic, c)
 
 	return app
 }
