@@ -293,11 +293,11 @@ func (h *transactionHandler) CreateFundTransfer(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.FromWalletID == "" || req.ToWalletID == "" || req.CashOutCategoryID == "" || req.CashInCategoryID == "" || req.TransactionDate == "" {
+	if req.FromWalletID == "" || req.ToWalletID == "" || req.TransactionDate == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.APIResponse{
 			Status:     false,
 			StatusCode: 400,
-			Message:    "from_wallet_id, to_wallet_id, cash_out_category_id, cash_in_category_id, and transaction_date are required",
+			Message:    "from_wallet_id, to_wallet_id, and transaction_date are required",
 		})
 	}
 
@@ -307,8 +307,8 @@ func (h *transactionHandler) CreateFundTransfer(c *fiber.Ctx) error {
 		ToWalletId:        req.ToWalletID,
 		Amount:            req.Amount,
 		AdminFee:          req.AdminFee,
-		CashOutCategoryId: req.CashOutCategoryID,
-		CashInCategoryId:  req.CashInCategoryID,
+		CashOutCategoryId: data.CATEGORY_ID_FUND_TRANSFER_CASH_OUT,
+		CashInCategoryId:  data.CATEGORY_ID_FUND_TRANSFER_CASH_IN,
 		TransactionDate:   req.TransactionDate,
 		Description:       req.Description,
 	}
