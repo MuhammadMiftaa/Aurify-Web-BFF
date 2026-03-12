@@ -11,6 +11,7 @@ import (
 	"refina-web-bff/interface/grpc/interceptor"
 	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
+	"refina-web-bff/internal/utils"
 	"refina-web-bff/internal/utils/data"
 
 	tpb "github.com/MuhammadMiftaa/Refina-Protobuf/transaction"
@@ -77,10 +78,11 @@ func (h *transactionHandler) GetUserTransactions(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get user wallets",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -101,10 +103,11 @@ func (h *transactionHandler) GetUserTransactions(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get transactions",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -162,10 +165,11 @@ func (h *transactionHandler) GetTransactionByID(c *fiber.Ctx) error {
 			"transaction_id": transactionID,
 			"error":          err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get transaction",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -219,10 +223,11 @@ func (h *transactionHandler) CreateTransaction(c *fiber.Ctx) error {
 			"wallet_id":  req.WalletID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusNotFound).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 404,
-			Message:    "Wallet not found",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -253,10 +258,11 @@ func (h *transactionHandler) CreateTransaction(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to create transaction: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -315,10 +321,11 @@ func (h *transactionHandler) CreateFundTransfer(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to create fund transfer: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -386,10 +393,11 @@ func (h *transactionHandler) UpdateTransaction(c *fiber.Ctx) error {
 			"transaction_id": transactionID,
 			"error":          err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to update transaction: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -429,10 +437,11 @@ func (h *transactionHandler) DeleteTransaction(c *fiber.Ctx) error {
 			"transaction_id": transactionID,
 			"error":          err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to delete transaction: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -474,10 +483,11 @@ func (h *transactionHandler) GetCategories(c *fiber.Ctx) error {
 			"type":       categoryType,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get categories",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -523,10 +533,11 @@ func (h *transactionHandler) GetAttachmentsByTransaction(c *fiber.Ctx) error {
 			"transaction_id": transactionID,
 			"error":          err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get attachments",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -577,10 +588,11 @@ func (h *transactionHandler) CreateAttachment(c *fiber.Ctx) error {
 			"transaction_id": req.TransactionID,
 			"error":          err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to create attachment: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -616,10 +628,11 @@ func (h *transactionHandler) DeleteAttachment(c *fiber.Ctx) error {
 			"attachment_id": attachmentID,
 			"error":         err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to delete attachment: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 

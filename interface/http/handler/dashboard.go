@@ -9,6 +9,7 @@ import (
 	"refina-web-bff/interface/grpc/interceptor"
 	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
+	"refina-web-bff/internal/utils"
 	"refina-web-bff/internal/utils/data"
 
 	dpb "github.com/MuhammadMiftaa/Refina-Protobuf/dashboard"
@@ -79,10 +80,11 @@ func (h *dashboardHandler) GetUserFinancialSummary(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get financial summary",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -159,10 +161,11 @@ func (h *dashboardHandler) GetUserBalance(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get user balance",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -251,10 +254,11 @@ func (h *dashboardHandler) GetUserTransactions(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get user transactions",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -301,10 +305,11 @@ func (h *dashboardHandler) GetUserNetWorthComposition(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get net worth composition",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -352,10 +357,11 @@ func (h *dashboardHandler) GetUserWallets(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get user wallets",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 

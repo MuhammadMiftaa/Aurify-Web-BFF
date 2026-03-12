@@ -11,6 +11,7 @@ import (
 	"refina-web-bff/interface/grpc/interceptor"
 	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
+	"refina-web-bff/internal/utils"
 	"refina-web-bff/internal/utils/data"
 
 	ipb "github.com/MuhammadMiftaa/Refina-Protobuf/investment"
@@ -64,10 +65,11 @@ func (h *investmentHandler) GetUserInvestments(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get investments",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -122,10 +124,11 @@ func (h *investmentHandler) GetInvestmentDetail(c *fiber.Ctx) error {
 			"investment_id": investmentID,
 			"error":         err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get investment detail",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -211,10 +214,11 @@ func (h *investmentHandler) CreateInvestment(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to create investment",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -261,10 +265,11 @@ func (h *investmentHandler) SellInvestment(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to sell investment",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -302,10 +307,11 @@ func (h *investmentHandler) GetInvestmentSummary(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get investment summary",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -348,10 +354,11 @@ func (h *investmentHandler) GetAssetCodes(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get asset codes",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 

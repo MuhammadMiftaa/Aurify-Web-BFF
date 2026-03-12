@@ -3,13 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	logger "refina-web-bff/config/log"
 	grpcClient "refina-web-bff/interface/grpc/client"
 	"refina-web-bff/interface/grpc/interceptor"
 	"refina-web-bff/internal/cache"
 	"refina-web-bff/internal/types/dto"
+	"refina-web-bff/internal/utils"
 	"refina-web-bff/internal/utils/data"
 
 	tpb "github.com/MuhammadMiftaa/Refina-Protobuf/transaction"
@@ -54,10 +54,11 @@ func (h *walletHandler) GetUserWallets(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get user wallets",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -74,10 +75,11 @@ func (h *walletHandler) GetUserWallets(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get transactions",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -129,10 +131,11 @@ func (h *walletHandler) GetWalletSummary(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get wallet summary",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -184,10 +187,11 @@ func (h *walletHandler) GetWalletByID(c *fiber.Ctx) error {
 			"wallet_id":  walletID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get wallet",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -247,10 +251,11 @@ func (h *walletHandler) CreateWallet(c *fiber.Ctx) error {
 			"user_id":    userData.ID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to create wallet: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -305,10 +310,11 @@ func (h *walletHandler) UpdateWallet(c *fiber.Ctx) error {
 			"wallet_id":  walletID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get wallet",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -343,10 +349,11 @@ func (h *walletHandler) UpdateWallet(c *fiber.Ctx) error {
 			"wallet_id":  walletID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to update wallet: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -386,10 +393,11 @@ func (h *walletHandler) DeleteWallet(c *fiber.Ctx) error {
 			"wallet_id":  walletID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    fmt.Sprintf("Failed to delete wallet: %s", err.Error()),
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
@@ -426,10 +434,11 @@ func (h *walletHandler) GetWalletTypes(c *fiber.Ctx) error {
 			"request_id": requestID,
 			"error":      err.Error(),
 		})
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.APIResponse{
+		grpcErr := utils.MapGRPCError(err)
+		return c.Status(grpcErr.HTTPStatus).JSON(dto.APIResponse{
 			Status:     false,
-			StatusCode: 500,
-			Message:    "Failed to get wallet types",
+			StatusCode: grpcErr.HTTPStatus,
+			Message:    grpcErr.Message,
 		})
 	}
 
