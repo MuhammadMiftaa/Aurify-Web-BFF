@@ -11,6 +11,11 @@ var (
 	CATEGORY_ID_FUND_TRANSFER          = "00000000-0000-0000-0000-000000000010"
 	CATEGORY_ID_FUND_TRANSFER_CASH_IN  = "00000000-0000-0000-0000-000000000011"
 	CATEGORY_ID_FUND_TRANSFER_CASH_OUT = "00000000-0000-0000-0000-000000000012"
+
+	// Wallet nature, mirroring wallet_types.nature in the wallet service. A
+	// liability wallet stores its remaining credit limit in balance.
+	WALLET_NATURE_ASSET     = "asset"
+	WALLET_NATURE_LIABILITY = "liability"
 )
 
 // HTTP header constants (go:S1192 — avoid duplicating string literals)

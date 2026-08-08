@@ -339,7 +339,13 @@ func (h *walletHandler) UpdateWallet(c *fiber.Ctx) error {
 		})
 	}
 
+	// Balance is derived from transactions and must not be edited directly. The
+	// exception is a liability wallet, whose balance is the credit limit granted
+	// by the issuer and can only change when the issuer changes it.
 	grpcReq.Balance = wallet.GetBalance()
+	if req.Balance != nil && wallet.GetWalletTypeNature() == data.WALLET_NATURE_LIABILITY {
+		grpcReq.Balance = *req.Balance
+	}
 
 	result, err := h.wallet.UpdateWallet(ctx, grpcReq)
 	if err != nil {
